@@ -1,7 +1,13 @@
 package xsbti
 
+<<<<<<< HEAD
 	import java.io.File
 	import scala.collection.mutable.ArrayBuffer
+=======
+import api.AnalysisCallback
+import java.io.File
+import scala.collection.mutable.ArrayBuffer
+>>>>>>> fbf79e5... work in progress
 
 class TestCallback extends AnalysisCallback
 {
