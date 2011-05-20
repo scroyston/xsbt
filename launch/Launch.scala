@@ -65,7 +65,7 @@ object Launch
 final class RunConfiguration(val scalaVersion: String, val app: xsbti.ApplicationID, val workingDirectory: File, val arguments: List[String]) extends NotNull
 
 import BootConfiguration.{appDirectoryName, baseDirectoryName, ScalaDirectoryName, TestLoadScalaClasses}
-class Launch private[xsbt](val bootDirectory: File, val ivyOptions: IvyOptions) extends xsbti.Launcher
+class Launch private[xsbt](val bootDirectory: File, val lockBoot: Boolean, val ivyOptions: IvyOptions) extends xsbti.Launcher
 {
 	import ivyOptions.{cacheDirectory, classifiers, repositories}
 	bootDirectory.mkdirs
@@ -73,7 +73,7 @@ class Launch private[xsbt](val bootDirectory: File, val ivyOptions: IvyOptions) 
 	def getScala(version: String): xsbti.ScalaProvider = scalaProviders(version)
 
 	lazy val topLoader = (new JNAProvider).loader
-	val updateLockFile = new File(bootDirectory, "sbt.boot.lock")
+	val updateLockFile = if(lockBoot) Some(new File(bootDirectory, "sbt.boot.lock")) else None
 
 	def globalLock: xsbti.GlobalLock = Locks
 
@@ -132,7 +132,7 @@ class Launch private[xsbt](val bootDirectory: File, val ivyOptions: IvyOptions) 
 			}
 			def newMain(): xsbti.AppMain = mainClass.newInstance
 
-			lazy val components = new ComponentProvider(appHome)
+			lazy val components = new ComponentProvider(appHome, lockBoot)
 		}
 	}
 }
@@ -143,11 +143,11 @@ object Launcher
 	def apply(bootDirectory: File, ivyOptions: IvyOptions): xsbti.Launcher =
 		apply(bootDirectory, ivyOptions, GetLocks.find)
 	def apply(bootDirectory: File, ivyOptions: IvyOptions, locks: xsbti.GlobalLock): xsbti.Launcher =
-		new Launch(bootDirectory, ivyOptions) {
+		new Launch(bootDirectory, true, ivyOptions) {
 			override def globalLock = locks
 		}
 	def apply(explicit: LaunchConfiguration): xsbti.Launcher =
-		new Launch(explicit.boot.directory, explicit.ivyConfiguration)
+		new Launch(explicit.boot.directory, explicit.boot.lock, explicit.ivyConfiguration)
 	def defaultAppProvider(baseDirectory: File): xsbti.AppProvider = getAppProvider(baseDirectory, Configuration.configurationOnClasspath)
 	def getAppProvider(baseDirectory: File, configLocation: URL): xsbti.AppProvider =
 	{
@@ -159,7 +159,7 @@ object Launcher
 		scalaProvider.app(config.app.toID)
 	}
 }
-class ComponentProvider(baseDirectory: File) extends xsbti.ComponentProvider
+class ComponentProvider(baseDirectory: File, lockBoot: Boolean) extends xsbti.ComponentProvider
 {
 	def componentLocation(id: String): File = new File(baseDirectory, id)
 	def component(id: String) = Provider.wrapNull(componentLocation(id).listFiles).filter(_.isFile)
@@ -171,7 +171,7 @@ class ComponentProvider(baseDirectory: File) extends xsbti.ComponentProvider
 		else
 			Copy(files.toList, location)
 	}
-	def lockFile = ComponentProvider.lockFile(baseDirectory)
+	def lockFile = if(lockBoot) ComponentProvider.lockFile(baseDirectory) else null // null for the Java interface
 }
 object ComponentProvider
 {
