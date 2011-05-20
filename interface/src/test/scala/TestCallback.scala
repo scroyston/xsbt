@@ -1,5 +1,6 @@
 package xsbti
 
+import api.AnalysisCallback
 import java.io.File
 import scala.collection.mutable.ArrayBuffer
 
