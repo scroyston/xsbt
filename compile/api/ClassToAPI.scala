@@ -10,9 +10,9 @@ object ClassToAPI
 {
 	def apply(c: Seq[Class[_]]): api.Source =
 	{
-		val pkgs = packages(c).map(p => new api.Package(p))
+		val pkgs = packages(c).map(p => api.Package.unique(p))
 		val defs = c.filter(isTopLevel).flatMap(toDefinitions)
-		new api.Source(pkgs.toArray, defs.toArray)
+		api.Source.unique(pkgs.toArray, defs.toArray)
 	}
 
 	def packages(c: Seq[Class[_]]): Set[String] = 
@@ -31,9 +31,8 @@ object ClassToAPI
 		val name = c.getName
 		val tpe = if(Modifier.isInterface(c.getModifiers)) Trait else ClassDef
 		lazy val (static, instance) = structure(c, enclPkg)
-		val cls = new api.ClassLike(tpe, strict(Empty), lzy(instance), typeParameters(c.getTypeParameters), name, acc, mods, annots)
-		def makeStatic(s: api.Structure) = 
-			new api.ClassLike(Module, strict(Empty), strict(s), Array(), name, acc, mods, annots)
+		val cls = api.ClassLike.unique(tpe, Empty, instance, typeParameters(c.getTypeParameters), name, acc, mods, annots)
+		def makeStatic(s: api.Structure) = api.ClassLike.unique(Module, Empty, s, Array(), name, acc, mods, annots)
 		cls :: static.map(makeStatic).toList
 	}
 
@@ -45,20 +44,20 @@ object ClassToAPI
 		val classes = merge[Class[_]](c, c.getClasses, c.getDeclaredClasses, toDefinitions, (_: Seq[Class[_]]).partition(isStatic), _.getEnclosingClass != c)
 		val all = (methods ++ fields ++ constructors ++ classes)
 		val parentTypes = parents(c)
-		val instanceStructure = new api.Structure(lzy(parentTypes.toArray), lzy(all.declared.toArray), lzy(all.inherited.toArray))
-		def static = new api.Structure(emptyTpeArray, lzy(all.staticDeclared.toArray), lzy(all.staticInherited.toArray))
+		val instanceStructure = api.Structure.unique(lzy(parentTypes.toArray), lzy(all.declared.toArray), lzy(all.inherited.toArray))
+		def static = api.Structure.unique(emptyTpeArray, lzy(all.staticDeclared.toArray), lzy(all.staticInherited.toArray))
 		val staticStructure = if(all.staticDeclared.isEmpty && all.staticInherited.isEmpty) None else Some(static)
 		(staticStructure, instanceStructure)
 	}
-	def lzy[T <: AnyRef](t: => T): xsbti.api.Lazy[T] = xsbti.SafeLazy(t)
+	//def lzy[T <: AnyRef](t: => T): xsbti.api.Lazy[T] = xsbti.SafeLazy(t)
+  def lzy[T <: AnyRef](t: => T) = t
 	private val emptyTpeArray = lzy(Array[xsbti.api.Type]())
 	private val emptyDefArray = lzy(Array[xsbti.api.Definition]())
 
 	def parents(c: Class[_]): Seq[api.Type] =
 		types(c.getGenericSuperclass +: c.getGenericInterfaces)
 	def types(ts: Seq[Type]): Array[api.Type] = ts filter (_ ne null) map reference toArray;
-	def upperBounds(ts: Array[Type]): api.Type =
-		new api.Structure(lzy(types(ts)), emptyDefArray, emptyDefArray)
+	def upperBounds(ts: Array[Type]): api.Type = api.Structure.unique(lzy(types(ts)), emptyDefArray, emptyDefArray)
 
 	def fieldToDef(enclPkg: Option[String])(f: Field): api.FieldLike =
 	{
@@ -67,7 +66,7 @@ object ClassToAPI
 		val mods = modifiers(f.getModifiers)
 		val annots = annotations(f.getDeclaredAnnotations)
 		val tpe = reference(f.getGenericType)
-		if(mods.isFinal) new api.Val(tpe, name, accs, mods, annots) else new api.Var(tpe, name, accs, mods, annots)
+		if(mods.isFinal) api.Val.unique(tpe, name, accs, mods, annots) else api.Var.unique(tpe, name, accs, mods, annots)
 	}
 
 	def methodToDef(enclPkg: Option[String])(m: Method): api.Def =
@@ -81,19 +80,19 @@ object ClassToAPI
 		val varArgPosition = if(varArgs) paramTypes.length - 1 else -1
 		val isVarArg = List.tabulate(paramTypes.length)(_ == varArgPosition)
 		val pa = (paramAnnots, paramTypes, isVarArg).zipped map { case (a,p,v) => parameter(a,p,v) }
-		val params = new api.ParameterList(pa, false)
+		val params = api.ParameterList.unique(pa, false)
 		val ret = retType match { case Some(rt) => reference(rt); case None => Empty }
-		new api.Def(Array(params), ret, typeParameters(tps), name, access(mods, enclPkg), modifiers(mods), annotations(annots) ++ exceptionAnnotations(exceptions))
+		api.Def.unique(Array(params), ret, typeParameters(tps), name, access(mods, enclPkg), modifiers(mods), annotations(annots) ++ exceptionAnnotations(exceptions))
 	}
 
 	def exceptionAnnotations(exceptions: Array[Type]): Array[api.Annotation] =
-		exceptions map { t => new api.Annotation(Throws, Array(new api.AnnotationArgument("value", t.toString))) }
+		exceptions map { t => api.Annotation.unique(Throws, Array(api.AnnotationArgument.unique("value", t.toString))) }
 
 	def parameter(annots: Array[Annotation], parameter: Type, varArgs: Boolean): api.MethodParameter =
-		new api.MethodParameter("", annotated(reference(parameter),annots), false, if(varArgs) api.ParameterModifier.Repeated else api.ParameterModifier.Plain)
+		api.MethodParameter.unique("", annotated(reference(parameter),annots), false, if(varArgs) api.ParameterModifier.Repeated else api.ParameterModifier.Plain)
 
 	def annotated(t: api.SimpleType, annots: Array[Annotation]): api.Type =
-		if(annots.isEmpty) t else new api.Annotated(t, annotations(annots))
+		if(annots.isEmpty) t else api.Annotated.unique(t, annotations(annots))
 
 	case class Defs(declared: Seq[api.Definition], inherited: Seq[api.Definition], staticDeclared: Seq[api.Definition], staticInherited: Seq[api.Definition])
 	{
@@ -118,7 +117,7 @@ object ClassToAPI
 	def typeParameters[T <: GenericDeclaration](tps: Array[TypeVariable[T]]): Array[api.TypeParameter] =
 		tps map typeParameter
 	def typeParameter[T <: GenericDeclaration](tp: TypeVariable[T]): api.TypeParameter =
-		new api.TypeParameter(typeVariable(tp), Array(), Array(), api.Variance.Invariant, NothingRef, upperBounds(tp.getBounds))
+		api.TypeParameter.unique(typeVariable(tp), Array(), Array(), api.Variance.Invariant, NothingRef, upperBounds(tp.getBounds))
 
 	// needs to be stable across compilations
 	//  preferably, it would be a proper unique id based on de Bruijn index
@@ -149,13 +148,13 @@ object ClassToAPI
 
 	def annotations(a: Array[Annotation]): Array[api.Annotation] = a map annotation
 	def annotation(a: Annotation): api.Annotation =
-		new api.Annotation( reference(a.annotationType), Array(javaAnnotation(a.toString)))
+		api.Annotation.unique( reference(a.annotationType), Array(javaAnnotation(a.toString)))
 
 	// full information not available from reflection
 	def javaAnnotation(s: String): api.AnnotationArgument =
-		new api.AnnotationArgument("toString", s)
+		api.AnnotationArgument.unique("toString", s)
 
-	def array(tpe: api.Type): api.SimpleType = new api.Parameterized(ArrayRef, Array(tpe))
+	def array(tpe: api.Type): api.SimpleType = api.Parameterized.unique(ArrayRef, Array(tpe))
 	def reference(c: Class[_]): api.SimpleType =
 		if(c.isArray) array(reference(c.getComponentType)) else if(c.isPrimitive) primitive(c.getName) else reference(c.getName)
 
@@ -166,29 +165,28 @@ object ClassToAPI
 		pkg match
 		{
 			// translate all primitives?
-			case None => new api.Projection(Empty, cls)
-			case Some(p) =>
-				new api.Projection(new api.Singleton(pathFromString(p)), cls)
+			case None => api.Projection.unique(Empty, cls)
+			case Some(p) => api.Projection.unique(api.Singleton.unique(pathFromString(p)), cls)
 		}
 	}
 	def referenceP(t: ParameterizedType): api.Parameterized =
 	{
 		val args = t.getActualTypeArguments.map(reference)
 		val base = reference(t.getRawType)
-		new api.Parameterized(base, args.toArray[api.Type])
+		api.Parameterized.unique(base, args.toArray[api.Type])
 	}
 	def reference(t: Type): api.SimpleType =
 		t match
 		{
 			case w: WildcardType => reference("_")
-			case tv: TypeVariable[_] => new api.ParameterRef(typeVariable(tv))
+			case tv: TypeVariable[_] => api.ParameterRef.unique(typeVariable(tv))
 			case pt: ParameterizedType => referenceP(pt)
 			case gat: GenericArrayType => array(reference(gat.getGenericComponentType))
 			case c: Class[_] => reference(c)
 		}
 
 	def pathFromString(s: String): api.Path =
-		new api.Path(s.split("\\.").map(new api.Id(_)) :+ ThisRef )
+		api.Path.unique(s.split("\\.").map(api.Id.unique(_)) :+ ThisRef )
 	def packageName(c: Class[_]) = packageAndName(c)._1
 	def packageAndName(c: Class[_]): (Option[String], String) =
 		packageAndName(c.getName)
@@ -201,14 +199,14 @@ object ClassToAPI
 			 (None, name)
 	}
 
-	val Empty = new api.EmptyType
-	val ThisRef = new api.This
+	val Empty = api.EmptyType
+	val ThisRef = api.This
 
-	val Public = new api.Public
-	val Private = new api.Private(Unqualified)
-	val Protected = new api.Protected(Unqualified)
-	val Unqualified = new api.Unqualified
-	def packagePrivate(pkg: Option[String]): api.Access = new api.Private(new api.IdQualifier(pkg getOrElse ""))
+	val Public = api.Public
+	val Private = api.Private.unique(Unqualified)
+	val Protected = api.Protected.unique(Unqualified)
+	val Unqualified = api.Unqualified
+	def packagePrivate(pkg: Option[String]): api.Access = api.Private.unique(api.IdQualifier.unique(pkg getOrElse ""))
 
 	val ArrayRef = reference("scala.Array")
 	val Throws = reference("scala.throws")

@@ -45,7 +45,7 @@ object Discovery
 	def isConcrete(a: Definition): Boolean = isConcrete(a.modifiers)
 	def isConcrete(m: Modifiers) = !m.isAbstract
 	def isPublic(a: Definition): Boolean = isPublic(a.access)
-	def isPublic(a: Access): Boolean = a.isInstanceOf[Public]
+	def isPublic(a: Access): Boolean = a == Public
 	def isModule(c: ClassLike) = c.definitionType == DefinitionType.Module
 
 	def hasMainMethod(c: ClassLike): Boolean =

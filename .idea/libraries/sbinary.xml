@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="sbinary">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/compile/persist/lib_managed/scala_2.8.1/default/sbinary_2.8.1-0.4.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

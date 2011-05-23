@@ -28,7 +28,24 @@ public final class Modifiers implements java.io.Serializable
 
 	private final byte flags;
 
-	private final boolean flag(int bit)
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    Modifiers modifiers = (Modifiers) o;
+
+    if (flags != modifiers.flags) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return (int) flags;
+  }
+
+  private final boolean flag(int bit)
 	{
 		return (flags & (1 << bit)) != 0;
 	}

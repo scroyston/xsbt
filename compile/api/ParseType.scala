@@ -46,7 +46,7 @@ object ParseType extends RegexParsers with PackratParsers
 	lazy val infixType: P[Type] =
 		simpleType ~ ((id ~ simpleType)?) ^^ {
 			case a ~ None => a
-			case a ~ Some(nme ~ b) => new Parameterized( New.fromName(nme), Array(a, b) )
+			case a ~ Some(nme ~ b) => Parameterized.unique( New.fromName(nme), Array(a, b) )
 		}
 
 	lazy val simpleType: P[SimpleType] =
@@ -56,7 +56,7 @@ object ParseType extends RegexParsers with PackratParsers
 		
 	lazy val parameterizedType: P[Parameterized] =
 		simpleType ~ typeArgs ^^ {
-			case base ~ args => new Parameterized( base, args.toArray )
+			case base ~ args => Parameterized.unique( base, args.toArray )
 		}
 	
 	lazy val projectionType: P[Projection] =
@@ -77,9 +77,9 @@ object New
 {
 	lazy val UnitType: SimpleType = fromName("scala.Unit")
 	
-	def tupleType(args: Seq[Type]): Parameterized = new Parameterized( tupleN(args.length), args.toArray )
+	def tupleType(args: Seq[Type]): Parameterized = Parameterized.unique( tupleN(args.length), args.toArray )
 	
-	def functionType(args: Seq[Type], result: Type): Parameterized  =  new Parameterized( functionN(args.length), (args ++ Seq(result)).toArray )
+	def functionType(args: Seq[Type], result: Type): Parameterized  =  Parameterized.unique( functionN(args.length), (args ++ Seq(result)).toArray )
 		
 	def functionN(n: Int): SimpleType = fromName("scala.Function" + n)
 	def tupleN(n: Int): SimpleType = fromName("scala.Tuple" + n)
@@ -91,7 +91,7 @@ object New
 	def toType(p: List[String]): SimpleType  =  if(p.last == Tpe) singleton(p.dropRight(1)) else designator(p)
 
 	def projection(prefix: SimpleType, select: String): Projection =
-		new Projection( prefix, select )
+		Projection.unique( prefix, select )
 	def designator(p: List[String]): Projection =
 		p match
 		{
@@ -100,12 +100,12 @@ object New
 			case xs => projection( singleton(p.dropRight(1)), p.last )
 		}
 
-	def singleton(p: List[String])  =  new Singleton( path(p) )
+	def singleton(p: List[String])  =  Singleton.unique( path(p) )
 
 	def path(p: List[String]) = 
 	{
 		assert(!p.contains(Tpe))
-		new Path( p.map(new Id(_)).toArray )
+		Path.unique( p.map(Id.unique(_)).toArray )
 	}
 
 	def expandUnqualified(s: String) = unqualified.getOrElse(s, s)

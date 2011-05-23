@@ -1,9 +1,9 @@
+package xsbti.api
+
 /* sbt -- Simple Build Tool
  * Copyright 2010 Mark Harrah
  */
-package xsbt.api
-
-	import xsbti.api._
+import xsbti.api._
 	import scala.collection.mutable
 
 object TagTypeVariables
@@ -100,7 +100,7 @@ private class TagTypeVariables
 			case a: Annotated => tagAnnotated(a)
 			case p: Parameterized => tagParameterized(p)
 			case p: Projection => tagProjection(p)
-			case _: EmptyType | _: Singleton | _: ParameterRef => ()
+			case EmptyType | _: Singleton | _: ParameterRef => ()
 		}
 	}
 

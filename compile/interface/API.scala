@@ -44,8 +44,8 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 			println("Traversing " + sourceFile)
 			val traverser = new TopLevelHandler(sourceFile)
 			traverser.apply(unit.body)
-			val packages = traverser.packages.toArray[String].map(p => new xsbti.api.Package(p))
-			val source = new xsbti.api.Source(packages, traverser.definitions.toArray[xsbti.api.Definition])
+			val packages = traverser.packages.toArray[String].map(p => xsbti.api.Package.unique(p))
+			val source = xsbti.api.Source.unique(packages, traverser.definitions.toArray[xsbti.api.Definition])
 			forceStructures()
 			clearCaches()
 			callback.api(sourceFile, source)
@@ -76,12 +76,13 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 	//   references to the thunk's classes are not retained.  Specifically, it allows the interface classes
 	//   (those in this subproject) to be garbage collected after compilation. 
 	private[this] val safeLazy = Class.forName("xsbti.SafeLazy").getMethod("apply", classOf[xsbti.F0[_]])
-	private def lzy[S <: AnyRef](s: => S): xsbti.api.Lazy[S] =
+  private def lzy[S <: AnyRef](s: => S) = s
+/*	private def lzy[S <: AnyRef](s: => S): xsbti.api.Lazy[S] =
 	{
 		val z = safeLazy.invoke(null, Message(s)).asInstanceOf[xsbti.api.Lazy[S]]
 		pending += z
 		z
-	}
+	}*/
 
 	// force all lazy structures.  This is necessary so that we see the symbols/types at this phase and
 	//   so that we don't hold on to compiler objects and classes
@@ -97,11 +98,11 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		}
 
 	private def thisPath(sym: Symbol) = path(pathComponents(sym, Constants.thisPath :: Nil))
-	private def path(components: List[PathComponent]) = new xsbti.api.Path(components.toArray[PathComponent])
+	private def path(components: List[PathComponent]) = xsbti.api.Path.unique(components.toArray[PathComponent])
 	private def pathComponents(sym: Symbol, postfix: List[PathComponent]): List[PathComponent] =
 	{
 		if(sym == NoSymbol || sym.isRoot || sym.isEmptyPackageClass || sym.isRootPackage) postfix
-		else pathComponents(sym.owner, new xsbti.api.Id(simpleName(sym)) :: postfix)
+		else pathComponents(sym.owner, xsbti.api.Id.unique(simpleName(sym)) :: postfix)
 	}
 	private def simpleType(in: Symbol, t: Type): SimpleType =
 		processType(in, t) match
@@ -124,19 +125,19 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 			}
 		}
 		else if(sym.isRoot || sym.isRootPackage) Constants.emptyType
-		else new xsbti.api.Projection(simpleType(in, pre), sym.nameString)
+		else xsbti.api.Projection.unique(simpleType(in, pre), sym.nameString)
 	}
 
-	private def reference(sym: Symbol): xsbti.api.ParameterRef = new xsbti.api.ParameterRef(sym.id)
+	private def reference(sym: Symbol): xsbti.api.ParameterRef = xsbti.api.ParameterRef.unique(sym.id)
 
 
 	private def annotations(in: Symbol, as: List[AnnotationInfo]): Array[xsbti.api.Annotation] = as.toArray[AnnotationInfo].map(annotation(in,_))
 	private def annotation(in: Symbol, a: AnnotationInfo) =
-		new xsbti.api.Annotation(simpleType(in, a.atp),
-			if(a.assocs.isEmpty) Array(new xsbti.api.AnnotationArgument("", a.args.mkString("(", ",", ")"))) // what else to do with a Tree?
-			else a.assocs.map { case (name, value) => new xsbti.api.AnnotationArgument(name.toString, value.toString) }.toArray[xsbti.api.AnnotationArgument]
+		xsbti.api.Annotation.unique(simpleType(in, a.atp),
+			if(a.assocs.isEmpty) Array(xsbti.api.AnnotationArgument.unique("", a.args.mkString("(", ",", ")"))) // what else to do with a Tree?
+			else a.assocs.map { case (name, value) => xsbti.api.AnnotationArgument.unique(name.toString, value.toString) }.toArray[xsbti.api.AnnotationArgument]
 		)
-	private def annotated(in: Symbol, as: List[AnnotationInfo], tpe: Type) = new xsbti.api.Annotated(simpleType(in, tpe), annotations(in, as))
+	private def annotated(in: Symbol, as: List[AnnotationInfo], tpe: Type) = xsbti.api.Annotated.unique(simpleType(in, tpe), annotations(in, as))
 
 	private def viewer(s: Symbol) = (if(s.isModule) s.moduleClass else s).thisType
 	private def printMember(label: String, in: Symbol, t: Type) = println(label + " in " + in + " : " + t + " (debug: " + debugString(t) + " )")
@@ -148,13 +149,13 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 			implicit def symbolsToParameters(syms: List[Symbol]): xsbti.api.ParameterList =
 			{
 				val isImplicitList = syms match { case head :: _ => isImplicit(head); case _ => false }
-				new xsbti.api.ParameterList(syms.map(parameterS).toArray, isImplicitList)
+				xsbti.api.ParameterList.unique(syms.map(parameterS).toArray, isImplicitList)
 			}
 			// 2.7 compatibility
 			implicit def typesToParameters(syms: List[Type]): xsbti.api.ParameterList =
 			{
 				val isImplicitList = t.isInstanceOf[ImplicitMethodType]
-				new xsbti.api.ParameterList(syms.map(parameterT).toArray, isImplicitList)
+				xsbti.api.ParameterList.unique(syms.map(parameterT).toArray, isImplicitList)
 			}
 			t match
 			{
@@ -168,7 +169,7 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 					build(resultType, typeParams, valueParameters)
 				case returnType =>
 					val t2 = processType(in, dropConst(returnType))
-					new xsbti.api.Def(valueParameters.reverse.toArray, t2, typeParams, simpleName(s), getAccess(s), getModifiers(s), annotations(in,s))
+					xsbti.api.Def.unique(valueParameters.reverse.toArray, t2, typeParams, simpleName(s), getAccess(s), getModifiers(s), annotations(in,s))
 			}
 		}
 		def parameterS(s: Symbol): xsbti.api.MethodParameter =
@@ -188,10 +189,18 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 					(tpe.typeArgs(0), ByName)
 				else
 					(tpe, Plain)
-			new xsbti.api.MethodParameter(name, processType(in, t), hasDefault(paramSym), special)
+			xsbti.api.MethodParameter.unique(name, processType(in, t), hasDefault(paramSym), special)
 		}
-		val t = viewer(in).memberInfo(s)
-		build(t, Array(), Nil)
+		try {
+      val t = viewer(in).memberInfo(s)
+      build(t, Array(), Nil)
+    }
+    catch {
+      case t: Throwable => {
+        t.printStackTrace()
+        (null: xsbti.api.Def)
+      }
+    }
 	}
 	private def hasDefault(s: Symbol) =
 	{
@@ -229,11 +238,11 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		val as = annotations(in, s)
 
 		if(s.isAliasType)
-			new xsbti.api.TypeAlias(processType(in, tpe), typeParams, name, access, modifiers, as)
+			xsbti.api.TypeAlias.unique(processType(in, tpe), typeParams, name, access, modifiers, as)
 		else if(s.isAbstractType)
 		{
 			val bounds = tpe.bounds
-			new xsbti.api.TypeDeclaration(processType(in, bounds.lo), processType(in, bounds.hi), typeParams, name, access, modifiers, as)
+			xsbti.api.TypeDeclaration.unique(processType(in, bounds.lo), processType(in, bounds.hi), typeParams, name, access, modifiers, as)
 		}
 		else
 			error("Unknown type member" + s)
@@ -248,21 +257,32 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 
 	private def mkStructure(info: Type, s: Symbol, inherit: Boolean): xsbti.api.Structure =
 	{
-		val (declared, inherited) = info.members.reverse.partition(_.owner == s)
+		val (declared, inherited) = try {
+      info.members.reverse.partition(_.owner == s)
+    }
+    catch {
+      case t: Throwable => {
+        t.printStackTrace()
+        (List.empty[Symbol], List.empty[Symbol])
+      }
+    }
 		val baseTypes = info.baseClasses.tail.map(info.baseType)
 		val ds = if(s.isModuleClass) removeConstructors(declared) else declared
 		val is = if(inherit) removeConstructors(inherited) else Nil
 		mkStructure(s, baseTypes, ds, is)
 	}
 
-	private def mkStructure(s: Symbol, bases: List[Type], declared: List[Symbol], inherited: List[Symbol]): xsbti.api.Structure =
-		new xsbti.api.Structure(lzy(types(s, bases)), lzy(processDefinitions(s, declared)), lzy(processDefinitions(s, inherited)))
+	private def mkStructure(s: Symbol, bases: List[Type], declared: List[Symbol], inherited: List[Symbol]): xsbti.api.Structure = {
+    // push func to pop, hold val
+    // push
+		xsbti.api.Structure.unique(lzy(types(s, bases)), lzy(processDefinitions(s, declared)), lzy(processDefinitions(s, inherited)))
+  }
 	private def processDefinitions(in: Symbol, defs: List[Symbol]): Array[xsbti.api.Definition] =
 		defs.toArray.flatMap( (d: Symbol) => definition(in, d))
 	private def definition(in: Symbol, sym: Symbol): Option[xsbti.api.Definition] =
 	{
-		def mkVar = Some(fieldDef(in, sym, false, new xsbti.api.Var(_,_,_,_,_)))
-		def mkVal = Some(fieldDef(in, sym, true, new xsbti.api.Val(_,_,_,_,_)))
+		def mkVar = Some(fieldDef(in, sym, false, xsbti.api.Var.unique(_,_,_,_,_)))
+		def mkVal = Some(fieldDef(in, sym, true, xsbti.api.Val.unique(_,_,_,_,_)))
 		if(sym.isClass || sym.isModule)
 			if(ignoreClass(sym)) None else Some(classLike(in, sym))
 		else if(isNonClassType(sym))
@@ -304,9 +324,9 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		else
 		{
 			val within = c.privateWithin
-			val qualifier = if(within == NoSymbol) Constants.unqualified else new xsbti.api.IdQualifier(fullName(within))
-			if(c.hasFlag(Flags.PROTECTED)) new xsbti.api.Protected(qualifier)
-			else new xsbti.api.Private(qualifier)
+			val qualifier = if(within == NoSymbol) Constants.unqualified else xsbti.api.IdQualifier.unique(fullName(within))
+			if(c.hasFlag(Flags.PROTECTED)) xsbti.api.Protected.unique(qualifier)
+			else xsbti.api.Private.unique(qualifier)
 		}
 	}
 	private def processType(in: Symbol, t: Type): xsbti.api.Type = typeCache.getOrElseUpdate((in, t), makeType(in, t))
@@ -317,18 +337,18 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		dealias(t) match
 		{
 			case NoPrefix => Constants.emptyType
-			case ThisType(sym) => new xsbti.api.Singleton(thisPath(sym))
+			case ThisType(sym) => xsbti.api.Singleton.unique(thisPath(sym))
 			case SingleType(pre, sym) => projectionType(in, pre, sym)
-			case ConstantType(constant) => new xsbti.api.Constant(processType(in, constant.tpe), constant.stringValue)
+			case ConstantType(constant) => xsbti.api.Constant.unique(processType(in, constant.tpe), constant.stringValue)
 			case TypeRef(pre, sym, args) =>
 				val base = projectionType(in, pre, sym)
-				if(args.isEmpty) base else new xsbti.api.Parameterized(base, types(in, args))
+				if(args.isEmpty) base else xsbti.api.Parameterized.unique(base, types(in, args))
 			case SuperType(thistpe: Type, supertpe: Type) => error("Super type (not implemented): this=" + thistpe + ", super=" + supertpe)
 			case at: AnnotatedType => annotatedType(in, at)
 			case rt: CompoundType => structure(rt)
-			case ExistentialType(tparams, result) => new xsbti.api.Existential(processType(in, result), typeParameters(in, tparams))
+			case ExistentialType(tparams, result) => xsbti.api.Existential.unique(processType(in, result), typeParameters(in, tparams))
 			case NoType => error("NoType")
-			case PolyType(typeParams, resultType) => new xsbti.api.Polymorphic(processType(in, resultType), typeParameters(in, typeParams))
+			case PolyType(typeParams, resultType) => xsbti.api.Polymorphic.unique(processType(in, resultType), typeParameters(in, typeParams))
 			case Nullary(resultType) => error("Unexpected nullary method type " + in + " in " + in.owner)
 			case _ => error("Unhandled type " + t.getClass + " : " + t)
 		}
@@ -343,8 +363,8 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		val variance = if(varianceInt < 0) Contravariant else if(varianceInt > 0) Covariant else Invariant
 		viewer(in).memberInfo(s) match
 		{
-			case TypeBounds(low, high) => new xsbti.api.TypeParameter( s.id, annots, typeParameters(in, s), variance, processType(in, low), processType(in, high) )
-			case PolyType(typeParams, base) => new xsbti.api.TypeParameter( s.id, annots, typeParameters(in, typeParams), variance, processType(in, base.bounds.lo),  processType(in, base.bounds.hi))
+			case TypeBounds(low, high) => xsbti.api.TypeParameter.unique( s.id, annots, typeParameters(in, s), variance, processType(in, low), processType(in, high) )
+			case PolyType(typeParams, base) => xsbti.api.TypeParameter.unique( s.id, annots, typeParameters(in, typeParams), variance, processType(in, base.bounds.lo),  processType(in, base.bounds.hi))
 			case x => error("Unknown type parameter info: " + x.getClass)
 		}
 	}
@@ -364,7 +384,7 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 				else DefinitionType.Module
 			}
 			else DefinitionType.ClassDef
-		new xsbti.api.ClassLike(defType, lzy(selfType(in, c)), lzy(structure(in, struct)), typeParameters(in, c), name, getAccess(c), getModifiers(c), annotations(in, c))
+		xsbti.api.ClassLike.unique(defType, lzy(selfType(in, c)), lzy(structure(in, struct)), typeParameters(in, c), name, getAccess(c), getModifiers(c), annotations(in, c))
 	}
 	private final class TopLevelHandler(sourceFile: File) extends TopLevelTraverser
 	{
@@ -385,14 +405,14 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 	}
 	private object Constants
 	{
-		val local = new xsbti.api.ThisQualifier
-		val public = new xsbti.api.Public
-		val privateLocal = new xsbti.api.Private(local)
-		val protectedLocal = new xsbti.api.Protected(local)
-		val unqualified = new xsbti.api.Unqualified
-		val emptyPath = new xsbti.api.Path(Array())
-		val thisPath = new xsbti.api.This
-		val emptyType = new xsbti.api.EmptyType
+		val local = xsbti.api.ThisQualifier
+		val public = xsbti.api.Public
+		val privateLocal = xsbti.api.Private.unique(local)
+		val protectedLocal = xsbti.api.Protected.unique(local)
+		val unqualified = xsbti.api.Unqualified
+		val emptyPath = xsbti.api.Path.unique(Array())
+		val thisPath = xsbti.api.This
+		val emptyType = xsbti.api.EmptyType
 	}
 	private abstract class TopLevelTraverser extends Traverser
 	{
@@ -400,7 +420,7 @@ final class API(val global: Global, val callback: xsbti.AnalysisCallback) extend
 		def `package`(s: Symbol)
 		override def traverse(tree: Tree)
 		{
-			tree match
+      tree match
 			{
 				case (_: ClassDef | _ : ModuleDef) if isTopLevel(tree.symbol) => `class`(tree.symbol)
 				case p: PackageDef =>

@@ -174,7 +174,7 @@ class SameAPI(tagsA: TypeVars, tagsB: TypeVars, includePrivate: Boolean, include
 	def sameAccess(a: Access, b: Access): Boolean =
 		(a, b) match
 		{
-			case (_: Public, _: Public) => true
+			case (Public, Public) => true
 			case (qa: Protected, qb: Protected) => sameQualifier(qa, qb)
 			case (qa: Private, qb: Private) => sameQualifier(qa, qb)
 			case _ => debug(false, "Different access categories")
@@ -184,8 +184,8 @@ class SameAPI(tagsA: TypeVars, tagsB: TypeVars, includePrivate: Boolean, include
 	def sameQualifier(a: Qualifier, b: Qualifier): Boolean =
 		(a, b) match
 		{
-			case (_: Unqualified, _: Unqualified) => true
-			case (_: ThisQualifier, _: ThisQualifier) => true
+			case (Unqualified, Unqualified) => true
+			case (ThisQualifier, ThisQualifier) => true
 			case (ia: IdQualifier, ib: IdQualifier) => debug(ia.value == ib.value, "Different qualifiers")
 			case _ => debug(false, "Different qualifier categories: " + a.getClass.getName +  " -- " +b.getClass.getName)
 		}
@@ -349,7 +349,7 @@ class SameAPI(tagsA: TypeVars, tagsB: TypeVars, includePrivate: Boolean, include
 			case (pa: Projection, pb: Projection) => debug(sameProjection(pa, pb), "Different projection")
 			case (pa: ParameterRef, pb: ParameterRef) => debug(sameParameterRef(pa, pb), "Different parameter ref")
 			case (sa: Singleton, sb: Singleton) => debug(sameSingleton(sa, sb), "Different singleton")
-			case (_: EmptyType, _: EmptyType) => true
+			case (EmptyType, EmptyType) => true
 			case (pa: Parameterized, pb: Parameterized) => debug(sameParameterized(pa, pb), "Different parameterized")
 			case _ => differentCategory("simple type", a, b)
 		}
@@ -373,7 +373,7 @@ class SameAPI(tagsA: TypeVars, tagsB: TypeVars, includePrivate: Boolean, include
 	def samePathComponent(a: PathComponent, b: PathComponent): Boolean =
 		(a, b) match
 		{
-			case (_: This, _: This) => true
+			case (This, This) => true
 			case (sa: Super, sb: Super) => samePathSuper(sa, sb)
 			case (ia: Id, ib: Id) => samePathId(ia, ib)
 			case _ => false

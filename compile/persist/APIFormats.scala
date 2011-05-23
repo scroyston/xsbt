@@ -10,6 +10,7 @@ package xsbt.api
 	import DefaultProtocol._
 	import java.io.File
 	import scala.collection.mutable
+import scala.collection.mutable.WrappedArray
 
 trait FormatExtra
 {
@@ -37,49 +38,49 @@ trait APIFormats extends FormatExtra
 
 	// cyclic with formatSuper, so it is not implicit by default
 	def formatPath(implicit pc: Format[Array[PathComponent]]): Format[Path] =
-		wrap[Path, Array[PathComponent]]( _.components, x => new Path(x))(pc)
+		wrap[Path, Array[PathComponent]]( _.components.toArray, x => Path.unique(x))(pc)
 	
 	implicit def formatComponent(implicit t: Format[This], s: Format[Super], i: Format[Id]): Format[PathComponent] =
 		asUnion(t, s, i)
 	def formatSuper(implicit p: Format[Path]): Format[Super] =
-		wrap[Super, Path](_.qualifier, q => new Super(q))(p)
+		wrap[Super, Path](_.qualifier, q => Super.unique(q))(p)
 	implicit def formatId(implicit s: Format[String]): Format[Id] =
-		wrap[Id, String](_.id, i => new Id(i))(s)
-	implicit val formatThis: Format[This] = asSingleton(new This)
+		wrap[Id, String](_.id, i => Id.unique(i))(s)
+	implicit val formatThis: Format[This] = asSingleton(This)
 
 	implicit def formatSource(implicit pa: Format[Array[Package]], da: Format[Array[Definition]]): Format[Source] =
-		p2( (s: Source) => (s.packages, s.definitions))( (p, d) => new Source(p, d) )(pa, da)
+		p2( (s: Source) => (s.packages.toArray, s.definitions.toArray))( (p, d) => Source.unique(p, d) )(pa, da)
 
 	implicit def formatAnnotated(implicit t: Format[SimpleType], as: Format[Array[Annotation]]): Format[Annotated] =
-		p2( (a: Annotated) => (a.baseType,a.annotations))(new Annotated(_,_))(t,as)
+		p2( (a: Annotated) => (a.baseType,a.annotations.toArray))(Annotated.unique(_,_))(t,as)
 
 	implicit def formatPolymorphic(implicit t: Format[Type], tps: Format[Array[TypeParameter]]): Format[Polymorphic] =
-		p2( (p: Polymorphic) => (p.baseType, p.parameters) )( new Polymorphic(_,_) )(t, tps)
+		p2( (p: Polymorphic) => (p.baseType, p.parameters.toArray) )( Polymorphic.unique(_,_) )(t, tps)
 
 	implicit def formatConstant(implicit t: Format[Type], fs: Format[String]): Format[Constant] =
-		p2( (c: Constant) => (c.baseType, c.value) )( new Constant(_,_) )(t,fs)
+		p2( (c: Constant) => (c.baseType, c.value) )( Constant.unique(_,_) )(t,fs)
 
 	implicit def formatExistential(implicit t: Format[Type], tps: Format[Array[TypeParameter]]): Format[Existential] =
-		p2( (e: Existential) => (e.baseType, e.clause) )( new Existential(_,_) )(t,tps)
+		p2( (e: Existential) => (e.baseType, e.clause.toArray) )( Existential.unique(_,_) )(t,tps)
 
 	implicit def formatParameterRef(implicit i: Format[Int]): Format[ParameterRef] =
-		wrap[ParameterRef, Int](_.id, new ParameterRef(_))(i)
+		wrap[ParameterRef, Int](_.id, ParameterRef.unique(_))(i)
 
 	// cyclic with many formats
 	def formatType(implicit s: Format[SimpleType], a: Format[Annotated], st: Format[Structure], e: Format[Existential], po: Format[Polymorphic]): Format[Type] =
 		asUnion(s, a, st, e, po)
 
 	implicit def formatDef(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], tp: Format[Array[TypeParameter]], vp: Format[Array[ParameterList]], t: Format[Type], fs: Format[String]): Format[Def] =
-		p7( (d: Def) => (d.valueParameters, d.returnType, d.typeParameters, d.name, d.access, d.modifiers, d.annotations))( new Def(_,_,_,_,_,_,_) )(vp, t, tp, fs, acs, ms, ans)
+		p7( (d: Def) => (d.valueParameters.toArray, d.returnType, d.typeParameters.toArray, d.name, d.access, d.modifiers, d.annotations.toArray))( Def.unique(_,_,_,_,_,_,_) )(vp, t, tp, fs, acs, ms, ans)
 		
 	implicit def formatVal(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], t: Format[Type], ts: Format[String]): Format[Val] =
-		fieldLike( new Val(_,_,_,_,_) )(acs, ms, ans, ts, t)
+		fieldLike( Val.unique(_,_,_,_,_) )(acs, ms, ans, ts, t)
 		
 	implicit def formatVar(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], t: Format[Type], ts: Format[String]): Format[Var] =
-		fieldLike( new Var(_,_,_,_,_) )(acs, ms, ans, ts, t)
+		fieldLike( Var.unique(_,_,_,_,_) )(acs, ms, ans, ts, t)
 
 	def fieldLike[F <: FieldLike](construct: (Type, String, Access, Modifiers, Array[Annotation]) => F)(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], nme: Format[String], tpe: Format[Type]): Format[F] =
-		asProduct5(construct)( d => (d.tpe, d.name, d.access, d.modifiers, d.annotations))(tpe, nme, acs, ms, ans)
+		asProduct5(construct)( d => (d.tpe, d.name, d.access, d.modifiers, d.annotations.toArray))(tpe, nme, acs, ms, ans)
 
 	def formatDefinition(implicit vl: Format[Val], vr: Format[Var], ds: Format[Def], cl: Format[ClassLike], ta: Format[TypeAlias], td: Format[TypeDeclaration]): Format[Definition] =
 		asUnion(vl, vr, ds, cl, ta, td)
@@ -87,27 +88,27 @@ trait APIFormats extends FormatExtra
 	def formatSimpleType(implicit pr: Format[Projection], pa: Format[ParameterRef], si: Format[Singleton], et: Format[EmptyType], p: Format[Parameterized]): Format[SimpleType] =
 		asUnion(pr, pa, si, et, p)
 
-	implicit def formatEmptyType: Format[EmptyType] = asSingleton(new EmptyType)
-	implicit def formatSingleton(implicit p: Format[Path]): Format[Singleton] = wrap[Singleton, Path](_.path, new Singleton(_))
+	implicit def formatEmptyType: Format[EmptyType] = asSingleton(EmptyType)
+	implicit def formatSingleton(implicit p: Format[Path]): Format[Singleton] = wrap[Singleton, Path](_.path, Singleton.unique(_))
 
 	def formatProjection(implicit t: Format[SimpleType], s: Format[String]): Format[Projection] =
-		p2( (p: Projection) => (p.prefix, p.id))(new Projection(_,_))(t, s)
+		p2( (p: Projection) => (p.prefix, p.id))(Projection.unique(_,_))(t, s)
 
 	def formatParameterized(implicit t: Format[SimpleType], tps: Format[Array[Type]]): Format[Parameterized] =
-		p2( (p: Parameterized) => (p.baseType, p.typeArguments))(new Parameterized(_,_))(t, tps)
+		p2( (p: Parameterized) => (p.baseType, p.typeArguments.toArray))(Parameterized.unique(_,_))(t, tps)
 
 	implicit def formatTypeAlias(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], tps: Format[Array[TypeParameter]], t: Format[Type], n: Format[String]): Format[TypeAlias] =
-		p6( (ta: TypeAlias) => (ta.tpe, ta.typeParameters, ta.name, ta.access, ta.modifiers, ta.annotations))( new TypeAlias(_,_,_,_,_,_) )(t, tps, n, acs, ms, ans)
+		p6( (ta: TypeAlias) => (ta.tpe, ta.typeParameters.toArray, ta.name, ta.access, ta.modifiers, ta.annotations.toArray))( TypeAlias.unique(_,_,_,_,_,_) )(t, tps, n, acs, ms, ans)
 		
 	implicit def formatTypeDeclaration(implicit acs: Format[Access], ms: Format[Modifiers], ans: Format[Array[Annotation]], tps: Format[Array[TypeParameter]], t: Format[Type], n: Format[String]): Format[TypeDeclaration] =
-		p7( (td: TypeDeclaration) => (td.lowerBound, td.upperBound, td.typeParameters, td.name, td.access, td.modifiers, td.annotations))( new TypeDeclaration(_,_,_,_,_,_,_))(t,t,tps,n,acs,ms,ans)
+		p7( (td: TypeDeclaration) => (td.lowerBound, td.upperBound, td.typeParameters.toArray, td.name, td.access, td.modifiers, td.annotations.toArray))( TypeDeclaration.unique(_,_,_,_,_,_,_))(t,t,tps,n,acs,ms,ans)
 
 	// cyclic with SimpleType
 	def formatAnnotation(implicit t: Format[SimpleType], af: Format[Array[AnnotationArgument]]): Format[Annotation] =
-		p2( (a: Annotation) => (a.base, a.arguments) )( (a,b) => new Annotation(a,b) )(t, af)
+		p2( (a: Annotation) => (a.base, a.arguments.toArray) )( (a,b) => Annotation.unique(a,b) )(t, af)
 		
 	implicit def formatAnnotationArgument(implicit sf: Format[String]): Format[AnnotationArgument] =
-		p2( (aa: AnnotationArgument) => (aa.name, aa.value))( (a,b) => new AnnotationArgument(a,b))(sf, sf)
+		p2( (aa: AnnotationArgument) => (aa.name, aa.value))( (a,b) => AnnotationArgument.unique(a,b))(sf, sf)
 
 
 	implicit def formatVariance(implicit b: Format[Byte]): Format[Variance] = 
@@ -117,23 +118,23 @@ trait APIFormats extends FormatExtra
 		wrap[DefinitionType, Byte]( dt => dt.ordinal.toByte, b => DefinitionType.values.apply(b.toInt) )(b)
 
 	implicit def formatPackage(implicit fs: Format[String]): Format[Package] =
-		wrap[Package, String]( _.name, n => new Package(n) )(fs)
+		wrap[Package, String]( _.name, n => Package.unique(n) )(fs)
 
 	implicit def formatAccess(implicit fs: Format[String]): Format[Access] =
 		new Format[Access]
 		{
-			val unqualified = new Unqualified
-			val ths = new ThisQualifier
+			val unqualified = Unqualified
+			val ths = ThisQualifier
 
-			val public = new Public
-			val privateUn = new Private(unqualified)
-			val protectedUn = new Protected(unqualified)
-			val privateThis = new Private(ths)
-			val protectedThis = new Protected(ths)
+			val public = Public
+			val privateUn = Private.unique(unqualified)
+			val protectedUn = Protected.unique(unqualified)
+			val privateThis = Private.unique(ths)
+			val protectedThis = Protected.unique(ths)
 
 			def reads(in: Input): Access =
 			{
-				def qualifier() = new IdQualifier(fs.reads(in))
+				def qualifier() = IdQualifier.unique(fs.reads(in))
 				import AccessIDs._
 				AccessIDs(in.readByte) match
 				{
@@ -142,8 +143,8 @@ trait APIFormats extends FormatExtra
 					case ProtectedID => protectedUn
 					case PrivateThisID => privateThis
 					case ProtectedThisID => protectedThis
-					case QPrivateID => new Private(qualifier())
-					case QProtectedID => new Protected(qualifier())
+					case QPrivateID => Private.unique(qualifier())
+					case QProtectedID => Protected.unique(qualifier())
 				}
 			}
 			def writes(out: Output, a: Access)
@@ -153,13 +154,13 @@ trait APIFormats extends FormatExtra
 				def qualified(un: Value, ths: Value, qual: Value, qualifier: Qualifier): Unit =
 					qualifier match
 					{
-						case _: Unqualified => w(un)
-						case _: ThisQualifier => w(ths)
+						case Unqualified => w(un)
+						case ThisQualifier => w(ths)
 						case i: IdQualifier => w(qual); fs.writes(out, i.value)
 					}
 				a match
 				{
-					case _: Public => w(PublicID)
+					case Public => w(PublicID)
 					case q: Qualified => q match {
 						case p: Private => qualified(PrivateID, PrivateThisID, QPrivateID, p.qualifier)
 						case p: Protected => qualified(ProtectedID, ProtectedThisID, QProtectedID, p.qualifier)
@@ -175,15 +176,15 @@ trait APIFormats extends FormatExtra
 	def formatTypeParameter(tps: Format[TypeParameter] => Format[Array[TypeParameter]])(implicit as: Format[Array[Annotation]], t: Format[Type], v: Format[Variance], i: Format[Int]): Format[TypeParameter] =
 	{
 		lazy val ltps: Format[Array[TypeParameter]] = lazyFormat( tps(ltp) )
-		lazy val ltp = p6( (tp: TypeParameter) => (tp.id, tp.annotations, tp.typeParameters, tp.variance, tp.lowerBound, tp.upperBound))(new TypeParameter(_,_,_,_,_,_))(i, as, ltps, v, t, t)
+		lazy val ltp = p6( (tp: TypeParameter) => (tp.id, tp.annotations.toArray, tp.typeParameters.toArray, tp.variance, tp.lowerBound, tp.upperBound))(TypeParameter.unique(_,_,_,_,_,_))(i, as, ltps, v, t, t)
 		ltp
 	}
 
 	implicit def formatParameterList(implicit mp: Format[Array[MethodParameter]], bf: Format[Boolean]): Format[ParameterList] =
-		p2( (pl: ParameterList) => (pl.parameters, pl.isImplicit) )( (ps, impl) => new ParameterList(ps, impl) )
+		p2( (pl: ParameterList) => (pl.parameters.toArray, pl.isImplicit) )( (ps, impl) => ParameterList.unique(ps, impl) )
 		
 	implicit def formatMethodParameter(implicit s: Format[String], b: Format[Boolean], m: Format[ParameterModifier], t: Format[Type]): Format[MethodParameter] =
-		p4( (mp: MethodParameter) => (mp.name, mp.tpe, mp.hasDefault, mp.modifier) )( new MethodParameter(_,_,_,_) )(s,t,b,m)
+		p4( (mp: MethodParameter) => (mp.name, mp.tpe, mp.hasDefault, mp.modifier) )( MethodParameter.unique(_,_,_,_) )(s,t,b,m)
 
 	implicit def formatParameterModifier(implicit bf: Format[Byte]): Format[ParameterModifier] =
 		wrap[ParameterModifier, Byte]( dt => dt.ordinal.toByte, b => ParameterModifier.values.apply(b.toInt) )(bf)

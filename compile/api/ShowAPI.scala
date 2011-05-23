@@ -66,7 +66,7 @@ trait ShowBase
 			def show(a: Access) =
 				a match
 				{
-					case p: Public => ""
+					case Public => ""
 					case q: Qualified => sq.show(q)
 				}
 			}
@@ -87,8 +87,8 @@ trait ShowBase
 			def show(q: Qualifier) =
 				q match
 				{
-					case _: Unqualified => ""
-					case _: ThisQualifier => "[this]"
+					case Unqualified => ""
+					case ThisQualifier => "[this]"
 					case i: IdQualifier => "[" + i.value + "]"
 				}
 		}
@@ -192,7 +192,7 @@ trait ShowType
 					case q: Projection => pr.show(q)
 					case q: ParameterRef => pa.show(q)
 					case q: Singleton => si.show(q)
-					case q: EmptyType =>  et.show(q)
+					case EmptyType =>  et.show(EmptyType)
 					case q: Parameterized => p.show(q)
 				}
 		}
@@ -243,7 +243,7 @@ trait ShowPath
 				p match
 				{
 					case s: Super => "super[" + sp.show(s.qualifier) + "]"
-					case _: This => "this"
+					case This => "this"
 					case i: Id => i.id
 				}
 		}

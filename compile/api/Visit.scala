@@ -65,7 +65,7 @@ class Visit
 	def visitAccess(a: Access): Unit =
 		a match
 		{
-			case pub: Public => visitPublic(pub)
+			case Public => visitPublic()
 			case qual: Qualified => visitQualified(qual)
 		}
 	def visitQualified(qual: Qualified): Unit =
@@ -77,17 +77,17 @@ class Visit
 	def visitQualifier(qual: Qualifier): Unit =
 		qual match
 		{
-			case unq: Unqualified => visitUnqualified(unq)
-			case thisq: ThisQualifier => visitThisQualifier(thisq)
+			case Unqualified => visitUnqualified()
+			case ThisQualifier => visitThisQualifier()
 			case id: IdQualifier => visitIdQualifier(id)
 		}
 	def visitIdQualifier(id: IdQualifier)
 	{
 		visitString(id.value)
 	}
-	def visitUnqualified(unq: Unqualified) {}
-	def visitThisQualifier(thisq: ThisQualifier) {}
-	def visitPublic(pub: Public) {}
+	def visitUnqualified() {}
+	def visitThisQualifier() {}
+	def visitPublic() {}
 	def visitPrivate(p: Private) { visitQualifier(p.qualifier) }
 	def visitProtected(p: Protected) { visitQualifier(p.qualifier) }
 	def visitModifiers(m: Modifiers) {}
@@ -149,7 +149,7 @@ class Visit
 			case a: Annotated => visitAnnotated(a)
 			case p: Parameterized => visitParameterized(p)
 			case p: Projection => visitProjection(p)
-			case _: EmptyType => visitEmptyType()
+			case EmptyType => visitEmptyType()
 			case s: Singleton => visitSingleton(s)
 			case pr: ParameterRef => visitParameterRef(pr)
 		}
@@ -161,11 +161,11 @@ class Visit
 	def visitPath(path: Path) = path.components foreach visitPathComponent
 	def visitPathComponent(pc: PathComponent) = pc match
 	{
-		case t: This => visitThisPath(t)
+		case This => visitThisPath()
 		case s: Super => visitSuperPath(s)
 		case id: Id => visitIdPath(id)
 	}
-	def visitThisPath(t: This) {}
+	def visitThisPath() {}
 	def visitSuperPath(s: Super) { visitPath(s.qualifier) }
 	def visitIdPath(id: Id) { visitString(id.id) }
 
