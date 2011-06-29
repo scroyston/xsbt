@@ -223,7 +223,7 @@ class XSbt(info: ProjectInfo) extends ParentProject(info) with NoCrossPaths
 		lazy val cleanManagedSrc = cleanTask(srcManagedPath)
 		override def cleanAction = super.cleanAction dependsOn(cleanManagedSrc)
 		/** Runs the generator compiled by 'compile', putting the classes in src_managed and processing the definitions 'apiDefinitions'. */
-		lazy val generateSource = generateSourceAction dependsOn(cleanManagedSrc, datatypeSub.compile)
+/*		lazy val generateSource = generateSourceAction dependsOn(cleanManagedSrc, datatypeSub.compile)
 		def generateSourceTask(immutable: Boolean, pkg: String, apiDefinitions: PathFinder): Task =
 		{
 			val m = if(immutable) "immutable" else "mutable"
@@ -235,7 +235,7 @@ class XSbt(info: ProjectInfo) extends ParentProject(info) with NoCrossPaths
 			//generateSourceTask(false, "xsbti.api", "definition" +++ "type") &&
 			generateSourceTask(true, "xsbti.api", "other" +++ "definition" +++ "type")
 		/** compiles the generated sources */
-		override def compileAction = super.compileAction dependsOn(generateSource)
+		override def compileAction = super.compileAction dependsOn(generateSource)*/
 	}
 	class LaunchInterfaceProject(info: ProjectInfo) extends BaseInterfaceProject(info)
 	{
@@ -273,7 +273,7 @@ class XSbt(info: ProjectInfo) extends ParentProject(info) with NoCrossPaths
 		// each sub project here will add ~100k to the download
 		lazy val precompiled29 = precompiledSub("2.9.0")
 		lazy val precompiled28 = precompiledSub("2.8.0")
-		lazy val precompiled27 = precompiledSub("2.7.7")
+		//lazy val precompiled27 = precompiledSub("2.7.7")
 
 		def precompiledSub(v: String) = 
 			project(info.projectPath, "Precompiled " + v, new Precompiled(v)(_), cip.info.dependencies.toSeq : _* /*doesn't include subprojects of cip*/ )

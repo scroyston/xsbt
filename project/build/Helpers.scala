@@ -11,7 +11,7 @@ trait NoCrossPaths extends Project
 trait JavaProject extends BasicScalaProject with NoCrossPaths
 {
 	// ensure that interfaces are only Java sources and that they cannot reference Scala classes
-	override def mainSources = descendents(mainSourceRoots, "*.java")
+//	override def mainSources = descendents(mainSourceRoots, "*.java")
 	override def compileOrder = CompileOrder.JavaThenScala
 }
 trait SourceProject extends BasicScalaProject with NoCrossPaths
